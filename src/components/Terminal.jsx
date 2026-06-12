@@ -26,7 +26,7 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
   }, [])
 
   useEffect(() => {
-    if (!containerRef.current || !token || termRef.current) return
+    if (!containerRef.current || (!token && !sessionId) || termRef.current) return
 
     const term = new XTerminal({
       cursorBlink: true,
