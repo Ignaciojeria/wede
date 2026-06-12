@@ -17,6 +17,8 @@ import (
 func main() {
 	portFlag := flag.String("port", "", "Override port (default: from config or 9090)")
 	pFlag := flag.String("p", "", "Override port (shorthand)")
+	authFlag := flag.Bool("auth", false, "Enable authentication")
+	noAuthFlag := flag.Bool("no-auth", false, "Disable authentication")
 	flag.Parse()
 
 	cfg := config.Load()
@@ -35,7 +37,14 @@ func main() {
 
 	ws := workspace.New(defaultPath)
 
-	authHandler := auth.New(cfg.Password)
+	authEnabled := cfg.AuthEnabled || *authFlag
+	if *noAuthFlag {
+		authEnabled = false
+	}
+	authHandler := auth.New(cfg.Password, authEnabled)
+	if !authEnabled {
+		log.Printf("authentication disabled")
+	}
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
 	termHandler := terminal.New(ws)

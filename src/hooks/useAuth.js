@@ -1,12 +1,41 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 const API = '/api'
 
 export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('wede_token'))
+  const [authEnabled, setAuthEnabled] = useState(true)
+  const [authReady, setAuthReady] = useState(false)
   const [error, setError] = useState(null)
   const [locked, setLocked] = useState(false)
   const [remaining, setRemaining] = useState(3)
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('wede_token')
+    setToken(null)
+  }, [])
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API}/auth/check`)
+        const data = await res.json()
+        if (data.authEnabled === false) {
+          setAuthEnabled(false)
+          return
+        }
+        setAuthEnabled(true)
+        if (!data.authenticated) {
+          logout()
+        }
+      } catch {
+        setError('Cannot connect to server')
+      } finally {
+        setAuthReady(true)
+      }
+    }
+    checkAuth()
+  }, [logout])
 
   const login = useCallback(async (password) => {
     setError(null)
@@ -40,13 +69,11 @@ export function useAuth() {
     }
   }, [])
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('wede_token')
-    setToken(null)
-  }, [])
-
   const authFetch = useCallback(async (url, options = {}) => {
-    const headers = { ...options.headers, Authorization: token }
+    const headers = { ...options.headers }
+    if (token) {
+      headers.Authorization = token
+    }
     const res = await fetch(url, { ...options, headers })
     if (res.status === 401) {
       logout()
@@ -55,5 +82,5 @@ export function useAuth() {
     return res
   }, [token, logout])
 
-  return { token, login, logout, error, locked, remaining, authFetch }
+  return { token, authEnabled, authReady, login, logout, error, locked, remaining, authFetch }
 }

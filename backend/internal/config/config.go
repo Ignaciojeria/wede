@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Password string `json:"password"`
-	Port     string `json:"port"`
+	Password    string `json:"password"`
+	Port        string `json:"port"`
+	AuthEnabled bool   `json:"authEnabled"`
 }
 
 const configName = "wede.config.json"
@@ -64,12 +65,12 @@ func Load() *Config {
 
 	log.Printf("loaded config from %s", found)
 
-	cfg := &Config{Port: "9090"}
+	cfg := &Config{Port: "9090", AuthEnabled: false}
 	if err := json.Unmarshal(data, cfg); err != nil {
 		log.Fatal("invalid wede.config.json:", err)
 	}
-	if cfg.Password == "" {
-		log.Fatal("password is required in wede.config.json")
+	if cfg.AuthEnabled && cfg.Password == "" {
+		log.Fatal("password is required when authEnabled is true in wede.config.json")
 	}
 	return cfg
 }

@@ -8,32 +8,35 @@ import FolderPicker from './components/FolderPicker'
 import IDE from './components/IDE'
 
 function App() {
-  const { token, login, logout, error, locked, remaining, authFetch } = useAuth()
+  const { token, authEnabled, authReady, login, logout, error, locked, remaining, authFetch } = useAuth()
   const { theme, setTheme } = useTheme()
   const [workspace, setWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchWorkspace = useCallback(async () => {
-    if (!token) return
+    if (authEnabled && !token) {
+      setLoading(false)
+      return
+    }
     try {
       const res = await authFetch('/api/workspace')
       const data = await res.json()
       setWorkspace(data)
     } catch {}
     setLoading(false)
-  }, [token, authFetch])
+  }, [token, authFetch, authEnabled])
 
   useEffect(() => {
-    if (token) fetchWorkspace()
-    else setLoading(false)
-  }, [token, fetchWorkspace])
+    if (!authReady) return
+    fetchWorkspace()
+  }, [authReady, fetchWorkspace])
 
   // First visit - pick theme
   if (!theme) {
     return <ThemePicker onSelect={setTheme} />
   }
 
-  if (!token) {
+  if (authEnabled && !token) {
     return <Login onLogin={login} error={error} locked={locked} remaining={remaining} />
   }
 

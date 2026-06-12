@@ -12,6 +12,7 @@ import (
 
 type Handler struct {
 	password    string
+	enabled     bool
 	mu          sync.Mutex
 	attempts    int
 	locked      bool
@@ -20,13 +21,14 @@ type Handler struct {
 	dataDir     string
 }
 
-func New(password string) *Handler {
+func New(password string, enabled bool) *Handler {
 	home, _ := os.UserHomeDir()
 	dataDir := filepath.Join(home, ".wede")
 	os.MkdirAll(dataDir, 0700)
 
 	h := &Handler{
 		password:    password,
+		enabled:     enabled,
 		maxAttempts: 3,
 		sessions:    make(map[string]bool),
 		dataDir:     dataDir,
@@ -63,6 +65,11 @@ func (h *Handler) saveSessions() {
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	if !h.enabled {
+		json.NewEncoder(w).Encode(map[string]string{"token": "no-auth"})
+		return
+	}
 
 	h.mu.Lock()
 	if h.locked {
@@ -123,6 +130,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	if !h.enabled {
+		json.NewEncoder(w).Encode(map[string]any{
+			"authenticated": true,
+			"authEnabled":   false,
+			"locked":        false,
+		})
+		return
+	}
+
 	token := r.Header.Get("Authorization")
 	if token == "" {
 		token = r.URL.Query().Get("token")
@@ -135,12 +151,18 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]any{
 		"authenticated": valid,
+		"authEnabled":   true,
 		"locked":        locked,
 	})
 }
 
 func (h *Handler) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !h.enabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		token := r.Header.Get("Authorization")
 		if token == "" {
 			token = r.URL.Query().Get("token")
