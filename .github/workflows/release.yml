@@ -111,8 +111,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          name: ${{ github.event.release.name || github.ref_name }}
           body: ${{ steps.changelog.outputs.body }}
           generate_release_notes: false
+          draft: false
           files: |
             artifacts/wede-*
             artifacts/checksums.txt
