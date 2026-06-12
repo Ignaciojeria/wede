@@ -86,6 +86,20 @@ Save this as `wede.config.json`.
 wede /path/to/your/project
 ```
 
+### Installing from your fork
+
+If you are using a fork, the installer can detect the `origin` remote from the repo clone. Run it from your fork clone:
+
+```bash
+./install.sh
+```
+
+Or override the target repo explicitly:
+
+```bash
+REPO_OVERRIDE="your-user/wede" ./install.sh
+```
+
 **3. Open your browser** at [http://localhost:9090](http://localhost:9090) and log in with your password.
 
 ## CLI Usage

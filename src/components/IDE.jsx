@@ -79,12 +79,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       try {
         const res = await authFetch(`/api/files/read?path=${encodeURIComponent(t.path)}`)
         const data = await res.json()
-        return { path: t.path, content: data.content }
-      } catch { return { path: t.path, content: '' } }
+        return { path: t.path, content: data.content, mtime: data.mtime }
+      } catch { return { path: t.path, content: '', mtime: Date.now() } }
     })).then(results => {
       setTabs(prev => prev.map(t => {
         const r = results.find(r => r.path === t.path)
-        if (r) return { ...t, content: r.content, originalContent: r.content, modified: false }
+        if (r) return { ...t, content: r.content, originalContent: r.content, modified: false, mtime: r.mtime }
         return t
       }))
     })
@@ -205,6 +205,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       setTabs((prev) => [...prev, {
         path: entry.path, name: entry.name,
         content: data.content, originalContent: data.content, modified: false,
+        mtime: data.mtime || Date.now(),
       }])
       setActiveTab(entry.path)
       if (isMobile) setMobilePanel('code')
@@ -233,12 +234,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (!tab?.modified || tab.type === 'browser') return
     setSaving(true)
     try {
-      await authFetch('/api/files/write', {
+      const res = await authFetch('/api/files/write', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: tab.path, content: tab.content }),
       })
+      const data = await res.json()
       setTabs((prev) => prev.map((t) =>
-        t.path === activeTab ? { ...t, originalContent: t.content, modified: false } : t
+        t.path === activeTab ? { ...t, originalContent: t.content, modified: false, mtime: data.mtime || Date.now() } : t
       ))
     } catch {}
     setSaving(false)
@@ -246,6 +248,32 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
+
+  useEffect(() => {
+    const checkStaleFile = async () => {
+      const tab = tabs.find((t) => t.path === activeTab)
+      if (!tab || tab.type === 'browser' || tab.modified || !tab.path) return
+      if (tab.mtime == null) return
+      try {
+        const res = await authFetch(`/api/files/read?path=${encodeURIComponent(tab.path)}`)
+        const data = await res.json()
+        if (typeof data.mtime === 'number' && data.mtime > tab.mtime) {
+          setTabs((prev) => prev.map((t) =>
+            t.path === tab.path ? {
+              ...t,
+              content: data.content,
+              originalContent: data.content,
+              modified: false,
+              mtime: data.mtime,
+            } : t
+          ))
+        }
+      } catch {}
+    }
+
+    window.addEventListener('focus', checkStaleFile)
+    return () => window.removeEventListener('focus', checkStaleFile)
+  }, [activeTab, tabs, authFetch])
 
   // ── Render the active tab content ──
   const renderTabContent = () => {

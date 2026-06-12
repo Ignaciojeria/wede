@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Allow installing from a fork by using the repo from git remote origin if available.
 REPO="webcrft/wede"
 BINARY="wede"
 echo "Installing wede..."
 echo ""
+
+if [ -n "${REPO_OVERRIDE:-}" ]; then
+  REPO="$REPO_OVERRIDE"
+elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  remote=$(git config --get remote.origin.url || true)
+  if [ -n "$remote" ] && echo "$remote" | grep -qE 'github.com[:/]'; then
+    repo=$(echo "$remote" | sed -E 's#.*github.com[:/]+##; s#\.git$##')
+    if [ -n "$repo" ]; then
+      REPO="$repo"
+    fi
+  fi
+fi
+
+echo "  Repo: ${REPO}"
 
 # Check dependencies
 if ! command -v curl &> /dev/null; then

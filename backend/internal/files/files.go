@@ -142,9 +142,10 @@ func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
+	json.NewEncoder(w).Encode(map[string]any{
 		"path":    reqPath,
 		"content": string(data),
+		"mtime":   info.ModTime().UnixMilli(),
 	})
 }
 
@@ -180,7 +181,17 @@ func (h *Handler) Write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	info, err := os.Stat(full)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"status": "ok",
+		"mtime":  info.ModTime().UnixMilli(),
+	})
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
